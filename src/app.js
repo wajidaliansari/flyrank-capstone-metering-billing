@@ -3,6 +3,8 @@ require('dotenv').config();
 const db = require('./database');
 const { recordUsage } = require('./metering');
 const { checkQuota } = require('./quota');
+const { createCheckoutSession } = require('./checkout');
+const { handleWebhook } = require('./stripe-webhook');
 
 const app = express();
 app.use(express.json());
@@ -11,6 +13,8 @@ app.use(express.json());
 app.get('/', (req, res) => {
   res.json({ status: '✓ Billing engine running' });
 });
+
+// ============ PHASE 2: METERING & QUOTA ============
 
 // Core billing endpoint
 app.post('/generate', (req, res) => {
@@ -88,6 +92,60 @@ app.get('/usage/:tenant_id', (req, res) => {
       message: err.message,
     });
   }
+});
+
+// ============ PHASE 3: STRIPE INTEGRATION ============
+
+// Create checkout session
+app.post('/checkout', async (req, res) => {
+  try {
+    const { tenant_id, plan } = req.body;
+
+    if (!tenant_id || !plan) {
+      return res.status(400).json({
+        error: 'Missing tenant_id or plan',
+      });
+    }
+
+    const session = await createCheckoutSession(tenant_id, plan);
+    res.json({ checkoutUrl: session.url, sessionId: session.id });
+  } catch (err) {
+    console.error('Error in /checkout:', err);
+    res.status(500).json({
+      error: 'Failed to create checkout session',
+      message: err.message,
+    });
+  }
+});
+
+// Webhook handler
+app.post('/webhooks/stripe', express.json(), async (req, res) => {
+  try {
+    const event = req.body;
+
+    if (!event.type) {
+      return res.status(400).json({ error: 'Invalid webhook event' });
+    }
+
+    const result = await handleWebhook(event);
+    res.json({ received: true, processed: result.processed });
+  } catch (err) {
+    console.error('Error in /webhooks/stripe:', err);
+    res.status(500).json({
+      error: 'Webhook handler error',
+      message: err.message,
+    });
+  }
+});
+
+// Success page (redirect from checkout)
+app.get('/success', (req, res) => {
+  res.json({ message: '✓ Subscription successful!', session_id: req.query.session_id });
+});
+
+// Cancel page (redirect from checkout)
+app.get('/cancel', (req, res) => {
+  res.json({ message: 'Subscription cancelled' });
 });
 
 const PORT = process.env.PORT || 3000;
