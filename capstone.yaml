@@ -1,0 +1,8 @@
+run: "npm start"
+seed: "node -e \"const db = require('better-sqlite3')('./billing.db'); ...\""
+base_url: "http://localhost:3000"
+endpoints:
+  meter: "/generate"
+  usage: "/usage/:tenant_id"
+  checkout: "/checkout"
+  webhook: "/webhooks/stripe"

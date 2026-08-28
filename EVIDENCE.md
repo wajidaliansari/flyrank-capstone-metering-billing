@@ -4,45 +4,13 @@
 
 **Proof**: Same request with same idempotency key returns identical event, no duplicate created.
 
+```bash
+# First Request
+$ curl -X POST http://localhost:3000/generate -H "Content-Type: application/json" -d "{\"tenant_id\": \"test-tenant-1\", \"usage_type\": \"api_call\", \"quantity\": 5, \"idempotency_key\": \"req-123\"}"
 
----
+{"success":true,"event":{"id":"2f1fdc31-c095-4b0c-9673-66b4f52bb565","tenant_id":"test-tenant-1","type":"api_call","quantity":5,"idempotency_key":"req-123","created_at":"2026-08-27 15:38:49"},"cached":false}
 
+# Second Request (Retry with the exact same key)
+$ curl -X POST http://localhost:3000/generate -H "Content-Type: application/json" -d "{\"tenant_id\": \"test-tenant-1\", \"usage_type\": \"api_call\", \"quantity\": 5, \"idempotency_key\": \"req-123\"}"
 
-## Requirement 2: Quota Enforcement ✓
-
-**Proof**: Request at boundary succeeds, request over boundary returns 429.
-
-
----
-
-## Requirement 3: Stripe Webhook Integration ✓
-
-**Proof**: Webhook updates tenant plan, deduplicates events.
-
-
----
-
-## Requirement 4: Token Pricing Rules ✓
-
-**Proof**: Pricing calculation handles all token types correctly.
-
-
----
-
-## Requirement 5: Data Persistence ✓
-
-**Proof**: SQLite database persists all data with proper schema.
-
-
----
-
-## Summary
-
-All 5 core requirements verified:
-- ✅ Idempotent metering (no double-counting)
-- ✅ Quota enforcement (429 at boundary)
-- ✅ Stripe webhooks (plan updates + deduplication)
-- ✅ Token pricing (all types calculated correctly)
-- ✅ Data persistence (SQLite with proper schema)
-
-System is production-ready for billing use cases.
+{"success":true,"event":{"id":"2f1fdc31-c095-4b0c-9673-66b4f52bb565","tenant_id":"test-tenant-1","type":"api_call","quantity":5,"idempotency_key":"req-123","created_at":"2026-08-27 15:38:49"},"cached":true}
